@@ -3,7 +3,9 @@
 
   <div class="in-container mb-3">
     <label for="in-csv" class="form-label">csv input</label>
-    <textarea id="in-csv" class="form-control"
+    <textarea ref="inCsv"
+        id="in-csv"
+        class="form-control"
         @drop="fileDrop"
         @dragover="dragOverHandler"
         :value="csvInput"
@@ -11,17 +13,22 @@
   </div>
 
   <div class="ctrl-container mb-3 d-flex justify-content-center">
-    <button class="in-generate btn btn-primary">Generate Event List</button>
+    <button class="in-generate btn btn-primary" @click="generate">Generate Event List</button>
   </div>
 
   <div class="out-container mb-3">
     <label for="out-cfg" class="form-label">Event List Output</label>
-    <textarea id="out-cfg" class="form-control" disabled="true"></textarea>
+    <textarea ref="outCfg"
+        id="out-cfg"
+        class="form-control"
+        disabled="true"
+        placeholder="Here will be your event list cfg content"></textarea>
   </div>
 </template>
 
 <script lang="ts">
 import { Options, Vue } from "vue-class-component";
+import { generateConfigFileByTrackPool, readCsv, writeCfg } from "@/api";
 
 @Options({})
 export default class HomeView extends Vue 
@@ -30,8 +37,6 @@ export default class HomeView extends Vue
 
     public async fileDrop(ev: any): Promise<void>
     {
-        console.log('File(s) dropped');
-
         // Prevent default behavior (Prevent file from being opened)
         ev.preventDefault();
         ev.stopPropagation();
@@ -66,6 +71,17 @@ export default class HomeView extends Vue
         return false;
     }
 
+    public async generate(ev: any): Promise<void>
+    {
+        const textAreaInCsv = this.$refs.inCsv as HTMLTextAreaElement;
+        const inputCsv = textAreaInCsv.value;
+        
+        const { records, defaultSettings } = await readCsv(inputCsv);
+        const { debugOutput, trackPool, eventList } = await generateConfigFileByTrackPool(records, defaultSettings);
+
+        const textAreaOutCfg: HTMLTextAreaElement = this.$refs.outCfg as HTMLTextAreaElement;
+        textAreaOutCfg.value = await writeCfg(defaultSettings, trackPool, eventList);
+    }
 }
 </script>
 

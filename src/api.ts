@@ -1,5 +1,7 @@
-import csv from "csv";
-import { groupBy, isNumeric, stringIsEmpty } from "./extensions";
+// import { parse } from ""; //"../node_modules/csv/dist/esm/index";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+import csv from "csvtojson";
+import { groupBy, isNumeric, stringIsEmpty, substringSplit } from "./extensions";
 
 const isFreeStandingEventSpot = (
     trackPool: any[],
@@ -48,99 +50,257 @@ const swapIndices = (list: any[], i1: number, i2: number) =>
     list[i2] = tempEli;
 };
 
+export interface IReadCsvResult
+{ 
+    records: any[],
+    defaultSettings: any
+}
+
+export interface IRawEvent
+{
+    debugOutput: any,
+    trackPool: any[],
+    eventList: any[]
+}
+
 /**
  * Command: 'event generate-config'.
  *
  * @param {Message} message - Message object.
  */
-async function eventGenerateFromCsv(csvInput: string)
+export const readCsv = async (csvInput: string): Promise<IReadCsvResult> =>
 {
-    try
-    {
-        const records: any[] =
-            (await new Promise((resolve, reject) =>
-            {
-                csv.parse(
-                    csvInput,
-                    {
-                        columns: true,
-                        delimiter: ";",
-                        comment: "#",
-                    },
-                    (err, output) =>
-                    {
-                        if (err) return reject(err);
-                        resolve(output);
-                    }
-                );
-            })) ?? [];
+    let defaultSettings: any = null;
+    let records: any[] = [];
 
-        records.forEach((record: any) =>
+    records = 
+        (await new Promise((resolve, reject) =>
         {
-            record.count = isNumeric(record.count)
-                ? Math.floor(Number.parseFloat(record.count) + 0.5)
-                : 0;
-            record.trackLength = isNumeric(record.trackLength)
-                ? Number.parseFloat(record.trackLength)
-                : -1;
-            if (record.trackLength > 0)
-            {
-                // These arbitrarily set numbers account to roughly the same number of tracks in each group as of 2022.10.12
-                if (record.trackLength < 1.05) record.trackLengthGroup = "short"; // 32
-                else if (record.trackLength < 1.8)
-                    record.trackLengthGroup = "medium"; // 34
-                else record.trackLengthGroup = "long"; // 32
-            }
-            else
-            {
-                record.trackLengthGroup = "arena";
-            }
-            record.commentTitle = `${record.mapTitle ?? ""} ${!stringIsEmpty(record.banger)
-                ? record.banger
-                : !stringIsEmpty(record.arena)
-                    ? record.arena
-                    : ""
-            } - ${isNumeric(record.trackLength)
-                ? record.trackLength + " km"
-                : record.trackLength
-            }`;
-            // record.laps = isNumeric(record.laps) ? Math.floor(Number.parseFloat(record.laps) + 0.5) : 0;
-            // record.botCount = isNumeric(record.botCount) ? Math.floor(Number.parseFloat(record.botCount) + 0.5) : 0;
-            // record.teamCount = isNumeric(record.teamCount) ? Math.floor(Number.parseFloat(record.teamCount) + 0.5) : 0;
-            // record.eliminationInterval = isNumeric(record.eliminationInterval) ? Math.floor(Number.parseFloat(record.eliminationInterval) + 0.5) : 0;
-            // record.timeLimit = isNumeric(record.timeLimit) ? Math.floor(Number.parseFloat(record.timeLimit) + 0.5) : 0;
-            // record.car_reset_delay = isNumeric(record.car_reset_delay) ? Math.floor(Number.parseFloat(record.car_reset_delay) + 0.5) : 0;
-        });
+            csv({ delimiter: ";" }).fromString(csvInput)
+                .then((value: any[]) => resolve(value), (reason: any) => reject(reason));
+        })) ?? [];
 
-        const defaultTrackIndex = records.findIndex((r) => r.trackId === "default");
-
-        const defaultSettings =
-            defaultTrackIndex >= 0 ? records.splice(defaultTrackIndex, 1)[0] : null;
-
-        // await message.channel.send("You got it. Working on it! 🛠");
-
-        await generateConfigFileByTrackPool(records, defaultSettings);
-
-        // await actionQueueService.promise();
-
-        // await message.channel.send(`Here is your event list. Beware this file is not a complete wreckfest config atm. (You also find a debug output file attached.)`);
-    }
-    catch (error)
+    records.forEach((record: any) =>
     {
-        console.error(error);
-        // return message.channel.send(`Sry something is wrong with that csv. Please check: ${error.message}`);
-    }
+        record.count = isNumeric(record.count)
+            ? Math.floor(Number.parseFloat(record.count) + 0.5)
+            : 0;
+        record.trackLength = isNumeric(record.trackLength)
+            ? Number.parseFloat(record.trackLength)
+            : -1;
+        if (record.trackLength > 0)
+        {
+            // These arbitrarily set numbers account to roughly the same number of tracks in each group as of 2022.10.12
+            if (record.trackLength < 1.05) record.trackLengthGroup = "short"; // 32
+            else if (record.trackLength < 1.8)
+                record.trackLengthGroup = "medium"; // 34
+            else record.trackLengthGroup = "long"; // 32
+        }
+        else
+        {
+            record.trackLengthGroup = "arena";
+        }
+        record.commentTitle = `${record.mapTitle ?? ""} ${!stringIsEmpty(record.banger)
+            ? record.banger
+            : !stringIsEmpty(record.arena)
+                ? record.arena
+                : ""
+        } - ${isNumeric(record.trackLength)
+            ? record.trackLength + " km"
+            : record.trackLength
+        }`;
+        // record.laps = isNumeric(record.laps) ? Math.floor(Number.parseFloat(record.laps) + 0.5) : 0;
+        // record.botCount = isNumeric(record.botCount) ? Math.floor(Number.parseFloat(record.botCount) + 0.5) : 0;
+        // record.teamCount = isNumeric(record.teamCount) ? Math.floor(Number.parseFloat(record.teamCount) + 0.5) : 0;
+        // record.eliminationInterval = isNumeric(record.eliminationInterval) ? Math.floor(Number.parseFloat(record.eliminationInterval) + 0.5) : 0;
+        // record.timeLimit = isNumeric(record.timeLimit) ? Math.floor(Number.parseFloat(record.timeLimit) + 0.5) : 0;
+        // record.car_reset_delay = isNumeric(record.car_reset_delay) ? Math.floor(Number.parseFloat(record.car_reset_delay) + 0.5) : 0;
+    });
+
+    const defaultTrackIndex = records.findIndex((r) => r.trackId === "default");
+
+    defaultSettings = defaultTrackIndex >= 0 ? records.splice(defaultTrackIndex, 1)[0] : null;
+
+    return { defaultSettings, records };
 }
 
-async function writeOutCfg(
+/**
+ *
+ * @param {object[]} trackPool
+ * @param {boolean} defaultSettings
+ * @returns
+ */
+export async function generateConfigFileByTrackPool(
+    trackPool: any[],
+    defaultSettings: any
+): Promise<IRawEvent>
+{
+    // Filter all tracks rated 0 or lower
+    trackPool = trackPool.filter((trackConfig) => trackConfig.count > 0);
+    if (trackPool.length < 1) throw new Error("trackPool is empty");
+
+    // Get base maps for each track configuration
+    trackPool.forEach(
+        (trackConfig) =>
+            (trackConfig.baseMap = substringSplit(trackConfig.trackId, "_", 1)[0])
+    );
+    // Sort by descending count
+    trackPool.sort((t1, t2) => t2.count - t1.count);
+
+    // Group maps by base map
+    const baseMapGroups = groupBy(trackPool, "baseMap");
+    const baseMapCount = Object.keys(baseMapGroups).length;
+
+    // No base map should follow up twice
+    const duplicateMemoryLength = Math.ceil(baseMapCount * 0.5);
+
+    // From the count generate a count at which a track appears in the rotation
+    // From that count accumulate the total event length
+    let eventCount = 0;
+    trackPool.forEach((trackConfig) =>
+    {
+        eventCount += trackConfig.count;
+    });
+
+    // Store an event list which only contains the indexes of the trackPool
+    const eventList = new Array(eventCount);
+
+    // Fill at random free standing spots
+    for (
+        let trackConfigurationIndex = 0;
+        trackConfigurationIndex < trackPool.length;
+        trackConfigurationIndex++
+    )
+    {
+        const trackConfiguration = trackPool[trackConfigurationIndex];
+        for (let r = 0; r < trackConfiguration.count; r++)
+        {
+            let randomIndex = Math.round(Math.random() * (eventCount - 1));
+
+            // Make sure to search list only once
+            let searchGuard = 0;
+
+            while (
+                searchGuard <= eventCount &&
+                eventList[randomIndex] !== undefined
+            )
+            {
+                // !isFreeStandingEventSpot(trackConfigurationIndex, randomIndex, trackConfiguration.baseMap))
+                randomIndex = ++randomIndex % eventCount;
+                searchGuard++;
+            }
+
+            eventList[randomIndex] = trackConfigurationIndex;
+        }
+    }
+
+    // Space out duplicates
+    let dupesFound = true;
+    let passes = 0;
+
+    const maxPasses = Math.ceil(1000);
+    for (; passes < maxPasses && dupesFound; passes++)
+    {
+        const dupeMemory = new Array(duplicateMemoryLength);
+
+        let prevTrackLengthGroup = "none";
+
+        dupesFound = false;
+
+        for (let c = 0; c < eventCount; c++) 
+        {
+            const i = (c + passes) % eventCount;
+            const trackConfiguration = trackPool[eventList[i]];
+
+            if (prevTrackLengthGroup === trackConfiguration.trackLengthGroup)
+            {
+                prevTrackLengthGroup = trackConfiguration.trackLengthGroup;
+                swapIndices(eventList, i, i + (((i % 2) + 1) % eventCount));
+                continue;
+            }
+
+            // TODO: This needs to be adapted to the new shifting pass-index
+            // If map is not in dupe add then go to next event in list
+            if (!dupeMemory.includes(trackConfiguration.baseMap))
+            {
+                dupeMemory[i % duplicateMemoryLength] = trackConfiguration.baseMap;
+                continue;
+            }
+            // If map is in dupe memory then move it and restart the dupe test.
+
+            dupesFound = true;
+
+            // Get positions to move
+            const positionsToMove = Math.ceil(
+                Math.random() * (duplicateMemoryLength * 1.1) +
+                duplicateMemoryLength * 0.05
+            );
+
+            // Move back by naive swapping
+            for (let j = 0; j < positionsToMove; j++)
+            {
+                swapIndices(eventList, (i + j) % eventCount, (i + j + 1) % eventCount);
+            }
+
+            break;
+        }
+    }
+
+    // Output debug information as json into a different file
+    let debugOutput = null;
+
+    const debugDate = new Date();
+    const debugDupeMemory = new Array(duplicateMemoryLength);
+    let debugAnyNaN = false;
+    let debugAnyEmpty = false;
+    const debugDupeIndizes = [];
+    const debugLengthExceeded = eventList[eventCount] >= 0;
+    let debugMaxTrackOccurence = 0;
+
+    for (let i = 0; i < eventCount; i++)
+    {
+        // Test if empty
+        if (eventList[i] === undefined) debugAnyEmpty = true;
+        // Test if Not a Number
+        else if (!debugAnyNaN && Number.isNaN(eventList[i])) debugAnyNaN = true;
+
+        const trackConfiguration = trackPool[eventList[i]];
+
+        if (debugDupeMemory.includes(trackConfiguration.baseMap))
+            debugDupeIndizes.push(i);
+
+        let count = trackConfiguration.count;
+
+        trackConfiguration.count = Number.isFinite(count) ? ++count : 1;
+
+        if (debugMaxTrackOccurence < count) debugMaxTrackOccurence = count;
+
+        debugDupeMemory[i % debugDupeMemory.length] = trackConfiguration.baseMap;
+    }
+
+    debugOutput = {
+        debugDate,
+        debugLengthExceeded,
+        debugAnyNaN,
+        debugAnyEmpty,
+        minSpaceBetween: debugDupeMemory.length,
+        trackPoolCount: trackPool.length,
+        eventCount,
+        debugMaxTrackOccurence,
+        /*debugDupeMemory,*/ spacingPasses: passes,
+        debugDupeIndizes,
+        eventList: eventList.map((trackPoolIndex) => trackPool[trackPoolIndex]),
+    };
+
+    return { debugOutput, trackPool, eventList };
+}
+
+export async function writeCfg(
     defaultSettings: any,
     trackPool: any[],
     eventList: any[]
-)
+): Promise<string>
 {
-    const textAreaOutCfg: HTMLTextAreaElement = document.querySelector(
-        ".out-cfg"
-    ) as HTMLTextAreaElement;
     const outCfgLines = [];
 
     try
@@ -300,176 +460,5 @@ async function writeOutCfg(
         console.error(error);
     }
 
-    textAreaOutCfg.value = outCfgLines.join("\n");
-}
-
-/**
- *
- * @param {object[]} trackPool
- * @param {boolean} defaultSettings
- * @returns
- */
-async function generateConfigFileByTrackPool(
-    trackPool: any[],
-    defaultSettings: any
-)
-{
-    // Filter all tracks rated 0 or lower
-    trackPool = trackPool.filter((trackConfig) => trackConfig.count > 0);
-    if (trackPool.length < 1) throw new Error("trackPool is empty");
-
-    // Get base maps for each track configuration
-    trackPool.forEach(
-        (trackConfig) =>
-            (trackConfig.baseMap = trackConfig.trackId.substringSplit("_", 1)[0])
-    );
-    // Sort by descending count
-    trackPool.sort((t1, t2) => t2.count - t1.count);
-
-    // Group maps by base map
-    const baseMapGroups = groupBy(trackPool, "baseMap");
-    const baseMapCount = Object.keys(baseMapGroups).length;
-
-    // No base map should follow up twice
-    const duplicateMemoryLength = Math.ceil(baseMapCount * 0.5);
-
-    // From the count generate a count at which a track appears in the rotation
-    // From that count accumulate the total event length
-    let eventCount = 0;
-    trackPool.forEach((trackConfig) =>
-    {
-        eventCount += trackConfig.count;
-    });
-
-    // Store an event list which only contains the indexes of the trackPool
-    const eventList = new Array(eventCount);
-
-    // Fill at random free standing spots
-    for (
-        let trackConfigurationIndex = 0;
-        trackConfigurationIndex < trackPool.length;
-        trackConfigurationIndex++
-    )
-    {
-        const trackConfiguration = trackPool[trackConfigurationIndex];
-        for (let r = 0; r < trackConfiguration.count; r++)
-        {
-            let randomIndex = Math.round(Math.random() * (eventCount - 1));
-
-            // Make sure to search list only once
-            let searchGuard = 0;
-
-            while (
-                searchGuard <= eventCount &&
-                eventList[randomIndex] !== undefined
-            )
-            {
-                // !isFreeStandingEventSpot(trackConfigurationIndex, randomIndex, trackConfiguration.baseMap))
-                randomIndex = ++randomIndex % eventCount;
-                searchGuard++;
-            }
-
-            eventList[randomIndex] = trackConfigurationIndex;
-        }
-    }
-
-    // Space out duplicates
-    let dupesFound = true;
-    let passes = 0;
-
-    const maxPasses = Math.ceil(1000);
-    for (; passes < maxPasses && dupesFound; passes++)
-    {
-        const dupeMemory = new Array(duplicateMemoryLength);
-
-        let prevTrackLengthGroup = "none";
-
-        dupesFound = false;
-
-        for (let c = 0; c < eventCount; c++) 
-        {
-            const i = (c + passes) % eventCount;
-            const trackConfiguration = trackPool[eventList[i]];
-
-            if (prevTrackLengthGroup === trackConfiguration.trackLengthGroup)
-            {
-                prevTrackLengthGroup = trackConfiguration.trackLengthGroup;
-                swapIndices(eventList, i, i + (((i % 2) + 1) % eventCount));
-                continue;
-            }
-
-            // TODO: This needs to be adapted to the new shifting pass-index
-            // If map is not in dupe add then go to next event in list
-            if (!dupeMemory.includes(trackConfiguration.baseMap))
-            {
-                dupeMemory[i % duplicateMemoryLength] = trackConfiguration.baseMap;
-                continue;
-            }
-            // If map is in dupe memory then move it and restart the dupe test.
-
-            dupesFound = true;
-
-            // Get positions to move
-            const positionsToMove = Math.ceil(
-                Math.random() * (duplicateMemoryLength * 1.1) +
-                duplicateMemoryLength * 0.05
-            );
-
-            // Move back by naive swapping
-            for (let j = 0; j < positionsToMove; j++)
-            {
-                swapIndices(eventList, (i + j) % eventCount, (i + j + 1) % eventCount);
-            }
-
-            break;
-        }
-    }
-
-    // Output debug information as json into a different file
-    let debugOutput = null;
-
-    const debugDate = new Date();
-    const debugDupeMemory = new Array(duplicateMemoryLength);
-    let debugAnyNaN = false;
-    let debugAnyEmpty = false;
-    const debugDupeIndizes = [];
-    const debugLengthExceeded = eventList[eventCount] >= 0;
-    let debugMaxTrackOccurence = 0;
-
-    for (let i = 0; i < eventCount; i++)
-    {
-        // Test if empty
-        if (eventList[i] === undefined) debugAnyEmpty = true;
-        // Test if Not a Number
-        else if (!debugAnyNaN && Number.isNaN(eventList[i])) debugAnyNaN = true;
-
-        const trackConfiguration = trackPool[eventList[i]];
-
-        if (debugDupeMemory.includes(trackConfiguration.baseMap))
-            debugDupeIndizes.push(i);
-
-        let count = trackConfiguration.count;
-
-        trackConfiguration.count = Number.isFinite(count) ? ++count : 1;
-
-        if (debugMaxTrackOccurence < count) debugMaxTrackOccurence = count;
-
-        debugDupeMemory[i % debugDupeMemory.length] = trackConfiguration.baseMap;
-    }
-
-    debugOutput = {
-        debugDate,
-        debugLengthExceeded,
-        debugAnyNaN,
-        debugAnyEmpty,
-        minSpaceBetween: debugDupeMemory.length,
-        trackPoolCount: trackPool.length,
-        eventCount,
-        debugMaxTrackOccurence,
-        /*debugDupeMemory,*/ spacingPasses: passes,
-        debugDupeIndizes,
-        eventList: eventList.map((trackPoolIndex) => trackPool[trackPoolIndex]),
-    };
-
-    writeOutCfg(defaultSettings, trackPool, eventList);
+    return outCfgLines.join("\n");
 }
