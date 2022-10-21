@@ -1,16 +1,22 @@
 <template>
   <div class="bg"></div>
 
-  <div class="in-container">
-    <textarea class="form in-csv"
+  <div class="in-container mb-3">
+    <label for="in-csv" class="form-label">csv input</label>
+    <textarea id="in-csv" class="form-control"
         @drop="fileDrop"
         @dragover="dragOverHandler"
-        :value="csvInput"></textarea>
-    <button class="in-generate btn btn-success">Process</button>
+        :value="csvInput"
+        placeholder="Drop your .csv-files here or copy the csv content"></textarea>
   </div>
 
-  <div class="out-container">
-    <textarea class="out-cfg"></textarea>
+  <div class="ctrl-container mb-3 d-flex justify-content-center">
+    <button class="in-generate btn btn-primary">Generate Event List</button>
+  </div>
+
+  <div class="out-container mb-3">
+    <label for="out-cfg" class="form-label">Event List Output</label>
+    <textarea id="out-cfg" class="form-control" disabled="true"></textarea>
   </div>
 </template>
 
@@ -64,9 +70,5 @@ export default class HomeView extends Vue
 </script>
 
 <style lang="scss">
-#drop_zone {
-  border: 5px solid blue;
-  width: 200px;
-  height: 100px;
-}
+
 </style>
