@@ -91,6 +91,12 @@ textarea {
   width: 100%;
   font-family: consolas !important;
 }
+textarea.form-control {
+    min-height: 12vh;
+}
+#out-cfg.form-control {
+    min-height: 56vh;
+}
 
 #drop_zone {
   border: 5px solid blue;

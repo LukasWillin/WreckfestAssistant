@@ -23,9 +23,9 @@
         </select>
         <i class="unicode-icon ms-4" v-show="hasInput">&#129170;</i>
         <button class="in-generate btn btn-primary ms-3" @click="generate" v-show="hasInput">Generate Event List</button>
-        <i class="unicode-icon ms-4" v-show="hasInput">&#129170;</i>
-        <button class="in-generate btn btn-primary ms-3" @click="copyOutput" v-show="hasInput">Copy to Clipboard</button>
-        <button class="in-generate btn btn-primary ms-3" @click="saveOutput" v-show="hasInput">Save as File</button>
+        <i class="unicode-icon ms-4" v-show="hasOutput">&#129170;</i>
+        <button class="in-generate btn btn-primary ms-3" @click="copyOutput" v-show="hasOutput">Copy to Clipboard</button>
+        <button class="in-generate btn btn-primary ms-3" @click="saveOutput" v-show="hasOutput">Save as File</button>
   </div>
 
   <div class="out-container mb-3" v-show="hasOutput">
