@@ -56,3 +56,14 @@ export const stringIsEmpty = (value: unknown) =>
     if (typeof value !== "string") return value === undefined || value === null;
     return !(value ?? value === "");
 };
+
+export const stringIsEmptyOrWhitespace = (value: unknown) =>
+{
+    if (value === undefined || value === null)
+        return true;
+    if (typeof value !== "string")
+        value = "" + value;
+
+    const str = (value as string).trim();
+    return str.length < 1;
+};

@@ -68,7 +68,7 @@ export interface IRawEvent
  *
  * @param {Message} message - Message object.
  */
-export const readCsv = async (csvInput: string): Promise<IReadCsvResult> =>
+export const readCsv = async (csvInput: string, delimiter: string = ";"): Promise<IReadCsvResult> =>
 {
     let defaultSettings: any = null;
     let records: any[] = [];
@@ -76,18 +76,26 @@ export const readCsv = async (csvInput: string): Promise<IReadCsvResult> =>
     records = 
         (await new Promise((resolve, reject) =>
         {
-            csv({ delimiter: ";" }).fromString(csvInput)
+            csv({ delimiter: delimiter }).fromString(csvInput)
                 .then((value: any[]) => resolve(value), (reason: any) => reject(reason));
         })) ?? [];
 
+    let prevTrackTitle = "";
+
     records.forEach((record: any) =>
     {
+        if (!stringIsEmpty(record.mapTitle))
+            prevTrackTitle = record.mapTitle;
+        else
+            record.mapTitle = prevTrackTitle;
+        
         record.count = isNumeric(record.count)
             ? Math.floor(Number.parseFloat(record.count) + 0.5)
             : 0;
         record.trackLength = isNumeric(record.trackLength)
             ? Number.parseFloat(record.trackLength)
             : -1;
+        
         if (record.trackLength > 0)
         {
             // These arbitrarily set numbers account to roughly the same number of tracks in each group as of 2022.10.12
@@ -165,7 +173,7 @@ export async function generateConfigFileByTrackPool(
     // Store an event list which only contains the indexes of the trackPool
     const eventList = new Array(eventCount);
 
-    // Fill at random free standing spots
+    // Fill event list at random
     for (
         let trackConfigurationIndex = 0;
         trackConfigurationIndex < trackPool.length;
