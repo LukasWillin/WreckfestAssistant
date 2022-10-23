@@ -125,12 +125,12 @@ export default class HomeView extends Vue
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
     public async generate(ev: any): Promise<void>
     {
+        this.cfgOutput = "";
         const trackData = await readCsv(this.csvInput, this.csvDelimiter);
         const { tracks, maps, mapLookup } = prepareTrackPool(trackData.tracks);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { debugOutput, eventList } = await generateConfigFileByTrackPool(tracks, maps, mapLookup);
         this.cfgOutput = await writeCfg(trackData.defaultSettings, tracks, eventList);
-        this.$forceUpdate();
     }
 
     public download(data: string, filename: string, type: string)

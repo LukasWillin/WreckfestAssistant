@@ -29,7 +29,8 @@ export class BaseMap
 
     public init(eventListLength: number)
     {
-        this.minSpaceBetween = Math.floor(eventListLength / this.count) - 1;
+        const float = eventListLength / this.count;
+        this.minSpaceBetween = Math.floor(float) - 1;
     }
 }
 
@@ -305,7 +306,7 @@ export function prepareTrackPool(tracks: Track[]): { tracks: Track[], maps: Base
         const mapIndex = maps.findIndex(map => map.name === track.baseMap);
         const map = maps[mapIndex];
         mapLookup[i] = mapIndex;
-        (map as BaseMap).count++;
+        (map as BaseMap).count += track.count;
         eventCount += track.count;
     }
 
@@ -378,13 +379,11 @@ export async function generateConfigFileByTrackPool(
     // Space out duplicates
     let dupesFound = true;
     let passes = 0;
+    let maxPasses = Math.ceil(eventCount * 100);
 
-    const maxPasses = Math.ceil(1000);
-    for (; passes < maxPasses && dupesFound; passes++)
+    for (passes = 0; passes < maxPasses && dupesFound; passes++)
     {
         const dupeMemory = new Array(duplicateMemoryLength);
-
-        let prevLengthGroup = "none";
 
         dupesFound = false;
 
@@ -393,14 +392,6 @@ export async function generateConfigFileByTrackPool(
             const i = (c + passes) % eventCount;
             const track = tracks[eventList[i]];
 
-            if (prevLengthGroup === track.trackLengthGroup)
-            {
-                prevLengthGroup = track.trackLengthGroup;
-                swapIndices(eventList, i, i + (((i % 2) + 1) % eventCount));
-                continue;
-            }
-
-            // TODO: This needs to be adapted to the new shifting pass-index
             // If map is not in dupe add then go to next event in list
             if (!dupeMemory.includes(track.baseMap))
             {
@@ -419,54 +410,103 @@ export async function generateConfigFileByTrackPool(
 
             // Move back by naive swapping
             for (let j = 0; j < positionsToMove; j++)
-            {
                 swapIndices(eventList, (i + j) % eventCount, (i + j + 1) % eventCount);
-            }
 
             break;
         }
     }
 
-    // Output debug information as json into a different file
-    let debugOutput = null;
-
-    const debugDate = new Date();
-    const debugDupeMemory = new Array(duplicateMemoryLength);
-    let debugAnyNaN = false;
-    let debugAnyEmpty = false;
-    const debugDupeIndizes = [];
-    const debugLengthExceeded = eventList[eventCount] >= 0;
-
-    for (let i = 0; i < eventCount; i++)
+    maxPasses = Math.ceil(eventCount * 200);
+    dupesFound = true;
+    for (passes = 0; passes < maxPasses && dupesFound; passes++)
     {
-        // Test if empty
-        if (eventList[i] === undefined) debugAnyEmpty = true;
-        // Test if Not a Number
-        else if (!debugAnyNaN && Number.isNaN(eventList[i])) debugAnyNaN = true;
+        let prevLengthGroup = "none";
+        dupesFound = false;
 
-        const trackConfiguration = tracks[eventList[i]];
+        for (let c = 0; c < eventCount; c++) 
+        {
+            const i = (c + passes) % eventCount;
+            const track = tracks[eventList[i]];
 
-        if (debugDupeMemory.includes(trackConfiguration.baseMap))
-            debugDupeIndizes.push(i);
-
-        debugDupeMemory[i % debugDupeMemory.length] = trackConfiguration.baseMap;
+            if (prevLengthGroup !== track.trackLengthGroup)
+                continue;
+            
+            dupesFound = true;
+            prevLengthGroup = track.trackLengthGroup;
+            swapIndices(eventList, i, i + (((i % 2) + 1) % eventCount));
+            break;
+        }
     }
 
-    debugOutput = {
-        debugDate,
-        debugLengthExceeded,
-        debugAnyNaN,
-        debugAnyEmpty,
-        minSpaceBetween: debugDupeMemory.length,
-        trackPoolCount: tracks.length,
-        eventCount,
-        spacingPasses: passes,
-        debugDupeIndizes,
-        eventList: eventList.map((trackPoolIndex) => tracks[trackPoolIndex]),
-        /*debugDupeMemory,*/ 
-    };
+    function isBaseMapInRange(mapName: string, maps: BaseMap[], mapLookup: number[], eventList: number[], rangeStart: number, rangeEndExcl: number): boolean
+    {
+        for (let i = rangeStart; i < rangeEndExcl; i++)
+        {
+            const trackIndex = eventList[(i + eventList.length) % eventList.length];
+            const map = maps[mapLookup[trackIndex]];
+            if (map.name === mapName)
+                return true;
+        }
+        return false;
+    }
 
-    return { debugOutput, eventList };
+    maxPasses = Math.ceil(eventCount * 2000);
+    dupesFound = true;
+    for (passes = 0; passes < maxPasses && dupesFound; passes++)
+    {
+        for (let c = 0; c < eventCount; c++) 
+        {
+            const i = (c + passes) % eventCount;
+            const baseMap = maps[mapLookup[eventList[i]]];
+
+            if (!isBaseMapInRange(baseMap.name, maps, mapLookup, eventList, i - baseMap.minSpaceBetween, i))
+                continue;
+
+            dupesFound = true;
+            swapIndices(eventList, i, (i + 1) % eventCount);
+        }
+    }
+
+    // Output debug information as json into a different file
+    // let debugOutput = null;
+
+    // const debugDate = new Date();
+    // const debugDupeMemory = new Array(duplicateMemoryLength);
+    // let debugAnyNaN = false;
+    // let debugAnyEmpty = false;
+    // const debugDupeIndizes = [];
+    // const debugLengthExceeded = eventList[eventCount] >= 0;
+
+    // for (let i = 0; i < eventCount; i++)
+    // {
+    //     // Test if empty
+    //     if (eventList[i] === undefined) debugAnyEmpty = true;
+    //     // Test if Not a Number
+    //     else if (!debugAnyNaN && Number.isNaN(eventList[i])) debugAnyNaN = true;
+
+    //     const trackConfiguration = tracks[eventList[i]];
+
+    //     if (debugDupeMemory.includes(trackConfiguration.baseMap))
+    //         debugDupeIndizes.push(i);
+
+    //     debugDupeMemory[i % debugDupeMemory.length] = trackConfiguration.baseMap;
+    // }
+
+    // debugOutput = {
+    //     debugDate,
+    //     debugLengthExceeded,
+    //     debugAnyNaN,
+    //     debugAnyEmpty,
+    //     minSpaceBetween: debugDupeMemory.length,
+    //     trackPoolCount: tracks.length,
+    //     eventCount,
+    //     spacingPasses: passes,
+    //     debugDupeIndizes,
+    //     eventList: eventList.map((trackPoolIndex) => tracks[trackPoolIndex]),
+    //     /*debugDupeMemory,*/ 
+    // };
+
+    return { debugOutput: {}, eventList };
 }
 
 export async function writeCfg(
