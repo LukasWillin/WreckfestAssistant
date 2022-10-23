@@ -3,6 +3,209 @@
 import csv from "csvtojson";
 import { groupBy, isNumeric, stringIsEmpty, substringSplit } from "./extensions";
 
+//#region Types
+export interface IReadCsvResult
+{ 
+    tracks: Track[],
+    defaultSettings: Track | null
+}
+
+export interface IRawEvent
+{
+    debugOutput: any,
+    eventList: number[]
+}
+
+export class BaseMap
+{
+    public name: string;
+    public count: number = 0;
+    public minSpaceBetween: number = 0;
+
+    public constructor(map: string)
+    {
+        this.name = map;
+    }
+
+    public init(eventListLength: number)
+    {
+        this.minSpaceBetween = Math.floor(eventListLength / this.count) - 1;
+    }
+}
+
+export interface TrackRecord
+{
+    trackId: string;
+    mapTitle: string;
+    count: number;
+    trackLength: number;
+    banger: string;
+    arena: string;
+    laps: number | undefined;
+    classRestriction: string | undefined;
+    disableWrongWayLimiter: string;
+    weatherId: string | undefined;
+    gameMode: string | undefined;
+    botCount: number | undefined;
+    carRestriction: string | undefined;
+    teamCount: number | undefined;
+    timeLimit: number | undefined;
+    eliminationInterval: number | undefined;
+    disableSpecialVehicles: string;
+    carResetDelay: number | undefined;
+    carResetDisabled: string;
+}
+
+export class Track
+{
+    public trackId!: string;
+    public mapTitle!: string;
+    public baseMap!: string;
+
+    public count: number = 0;
+    public trackLength!: number;
+    public trackLengthGroup!: "short" | "medium" | "long" | "arena";
+    public banger!: string;
+    public arena!: string;
+
+    public classRestriction!: string | undefined;
+    public disableWrongWayLimiter!: boolean | undefined;
+    public laps!: number | undefined;
+    public weatherId!: string | undefined;
+    public gameMode!: unknown | undefined;
+    public botCount!: number | undefined;
+    public carRestriction!: unknown | undefined;
+    public teamCount!: number | undefined;
+    public timeLimit!: number | undefined;
+    public eliminationInterval!: number | undefined;
+    public disableSpecialVehicles!: boolean | undefined;
+    public carResetDelay!: number | undefined;
+    public carResetDisabled!: boolean | undefined;
+
+    public get isDefault(): boolean
+    {
+        return this.trackId === "default";
+    }
+
+    public get commentTitle(): string
+    {
+        return `${this.mapTitle ?? ""} ${!stringIsEmpty(this.banger)
+            ? this.banger
+            : !stringIsEmpty(this.arena)
+                ? this.arena
+                : ""
+        } - ${isNumeric(this.trackLength)
+            ? this.trackLength + " km"
+            : this.trackLength
+        }`;
+    }
+
+    public static fromCSV(record: TrackRecord): Track
+    {
+        const track = new Track();
+
+        track.trackId = record.trackId;
+        track.baseMap = substringSplit(record.trackId, "_", 1)[0];
+        track.mapTitle = record.mapTitle;
+
+        record.count = track.count = isNumeric(record.count)
+            ? Math.floor(Number.parseFloat(record.count as unknown as string) + 0.5)
+            : 0;
+        record.trackLength = track.trackLength = isNumeric(record.trackLength)
+            ? Number.parseFloat(record.trackLength as unknown as string)
+            : -1;
+        record.laps = track.laps = isNumeric(record.laps)
+            ? Math.floor(Number.parseFloat(record.laps as unknown as string))
+            : undefined;
+        if (track.trackLength > 0)
+        {
+            // These arbitrarily set numbers account to roughly the same number of tracks in each group as of 2022.10.12
+            if (track.trackLength < 1.05) 
+                track.trackLengthGroup = "short"; // 32
+            else if (track.trackLength < 1.8)
+                track.trackLengthGroup = "medium"; // 34
+            else 
+                track.trackLengthGroup = "long"; // 32
+        }
+        else
+        {
+            track.trackLengthGroup = "arena";
+        }
+
+        track.arena = record.arena;
+        track.banger = record.banger;
+        track.botCount = record.botCount;
+        track.carResetDisabled = Number.parseInt(record.carResetDisabled) > 0 ? true: false;
+        track.carResetDelay = record.carResetDelay;
+        track.carRestriction = record.carRestriction;
+        track.classRestriction = record.classRestriction;
+        track.disableSpecialVehicles = Number.parseInt(record.disableSpecialVehicles) > 0 ? true : false;
+        track.disableWrongWayLimiter = Number.parseInt(record.disableWrongWayLimiter) > 0 ? true: false;
+        track.eliminationInterval = record.eliminationInterval;
+        track.weatherId = record.weatherId;
+        track.gameMode = record.gameMode;
+        track.teamCount= record.teamCount;
+        track.timeLimit = record.timeLimit;
+
+        return track;
+    }
+
+    public toCFGLines(): string[]
+    {
+        const outCfgLines = [];
+        
+        outCfgLines.push(
+            `# ${this.commentTitle} (Base Map: ${this.baseMap}, Track Length Group: ${this.trackLengthGroup})`
+        );
+        outCfgLines.push(`el_add=${this.trackId}`);
+
+        if (!stringIsEmpty(this.laps))
+            outCfgLines.push(`el_laps=${this.laps}`);
+        if (!stringIsEmpty(this.gameMode))
+            outCfgLines.push(`el_gamemode=${this.gameMode}`);
+        if (!stringIsEmpty(this.teamCount))
+            outCfgLines.push(`el_num_teams=${this.teamCount}`);
+        if (!stringIsEmpty(this.botCount))
+            outCfgLines.push(`el_bots=${this.botCount}`);
+        if (this.carResetDisabled)
+            outCfgLines.push(
+                `el_car_reset_disabled=1`
+            );
+        if (!stringIsEmpty(this.carResetDelay))
+            outCfgLines.push(
+                `el_car_reset_delay=${this.carResetDelay}`
+            );
+        if (this.disableWrongWayLimiter)
+            outCfgLines.push(
+                `el_wrong_way_limiter_disabled=1`
+            );
+        if (!stringIsEmpty(this.classRestriction))
+            outCfgLines.push(
+                `el_car_class_restriction=${this.classRestriction}`
+            );
+        if (!stringIsEmpty(this.carRestriction))
+            outCfgLines.push(
+                `el_car_restriction=${this.carRestriction}`
+            );
+        if (this.disableSpecialVehicles)
+            outCfgLines.push(
+                `el_special_vehicles_disabled=1`
+            );
+        if (!stringIsEmpty(this.weatherId))
+            outCfgLines.push(`el_weather=${this.weatherId}`);
+
+        if (!stringIsEmpty(this.timeLimit))
+            outCfgLines.push(`el_time_limit=${this.timeLimit}`);
+        if (!stringIsEmpty(this.eliminationInterval))
+            outCfgLines.push(
+                `el_elimination_interval=${this.eliminationInterval}`
+            );
+        
+        return outCfgLines;
+    }
+}
+//#endregion Types
+
 const isFreeStandingEventSpot = (
     trackPool: any[],
     eventList: any[],
@@ -50,138 +253,108 @@ const swapIndices = (list: any[], i1: number, i2: number) =>
     list[i2] = tempEli;
 };
 
-export interface IReadCsvResult
-{ 
-    records: any[],
-    defaultSettings: any
-}
-
-export interface IRawEvent
-{
-    debugOutput: any,
-    trackPool: any[],
-    eventList: any[]
-}
-
-/**
- * Command: 'event generate-config'.
- *
- * @param {Message} message - Message object.
- */
 export const readCsv = async (csvInput: string, delimiter: string = ";"): Promise<IReadCsvResult> =>
 {
-    let defaultSettings: any = null;
+    let defaultSettings: Track | null = null;
     let records: any[] = [];
 
-    records = 
-        (await new Promise((resolve, reject) =>
-        {
-            csv({ delimiter: delimiter }).fromString(csvInput)
-                .then((value: any[]) => resolve(value), (reason: any) => reject(reason));
-        })) ?? [];
+    records = (await new Promise((resolve, reject) =>
+    {
+        csv({ delimiter: delimiter }).fromString(csvInput)
+            .then((value: any[]) => resolve(value), (reason: any) => reject(reason));
+    })) ?? [];
 
     let prevTrackTitle = "";
-
-    records.forEach((record: any) =>
+    records.forEach((record: TrackRecord) =>
     {
         if (!stringIsEmpty(record.mapTitle))
             prevTrackTitle = record.mapTitle;
         else
             record.mapTitle = prevTrackTitle;
-        
-        record.count = isNumeric(record.count)
-            ? Math.floor(Number.parseFloat(record.count) + 0.5)
-            : 0;
-        record.trackLength = isNumeric(record.trackLength)
-            ? Number.parseFloat(record.trackLength)
-            : -1;
-        
-        if (record.trackLength > 0)
-        {
-            // These arbitrarily set numbers account to roughly the same number of tracks in each group as of 2022.10.12
-            if (record.trackLength < 1.05) record.trackLengthGroup = "short"; // 32
-            else if (record.trackLength < 1.8)
-                record.trackLengthGroup = "medium"; // 34
-            else record.trackLengthGroup = "long"; // 32
-        }
-        else
-        {
-            record.trackLengthGroup = "arena";
-        }
-        record.commentTitle = `${record.mapTitle ?? ""} ${!stringIsEmpty(record.banger)
-            ? record.banger
-            : !stringIsEmpty(record.arena)
-                ? record.arena
-                : ""
-        } - ${isNumeric(record.trackLength)
-            ? record.trackLength + " km"
-            : record.trackLength
-        }`;
-        // record.laps = isNumeric(record.laps) ? Math.floor(Number.parseFloat(record.laps) + 0.5) : 0;
-        // record.botCount = isNumeric(record.botCount) ? Math.floor(Number.parseFloat(record.botCount) + 0.5) : 0;
-        // record.teamCount = isNumeric(record.teamCount) ? Math.floor(Number.parseFloat(record.teamCount) + 0.5) : 0;
-        // record.eliminationInterval = isNumeric(record.eliminationInterval) ? Math.floor(Number.parseFloat(record.eliminationInterval) + 0.5) : 0;
-        // record.timeLimit = isNumeric(record.timeLimit) ? Math.floor(Number.parseFloat(record.timeLimit) + 0.5) : 0;
-        // record.car_reset_delay = isNumeric(record.car_reset_delay) ? Math.floor(Number.parseFloat(record.car_reset_delay) + 0.5) : 0;
     });
 
-    const defaultTrackIndex = records.findIndex((r) => r.trackId === "default");
+    const tracks = records.map(record => Track.fromCSV(record));
 
-    defaultSettings = defaultTrackIndex >= 0 ? records.splice(defaultTrackIndex, 1)[0] : null;
+    const defaultTrackIndex = tracks.findIndex((t: Track) => t.isDefault);
 
-    return { defaultSettings, records };
+    defaultSettings = defaultTrackIndex >= 0 ? tracks.splice(defaultTrackIndex, 1)[0] : null;
+
+    return { defaultSettings, tracks };
+}
+
+export function prepareTrackPool(tracks: Track[]): { tracks: Track[], maps: BaseMap[], mapLookup: number[] }
+{
+    // Filter all tracks with count 0 or lower
+    tracks = tracks.filter((track: Track) => track.count > 0);
+    
+    if (tracks.length === 0)
+        return { tracks, maps: [], mapLookup: [] };
+
+    // Group maps by base map
+    const baseMapGroups = groupBy(tracks, "baseMap");
+    const maps = Object.keys(baseMapGroups).map((map: string) => 
+    {
+        return new BaseMap(map);
+    });
+
+    const mapLookup: number[] = [];
+    let eventCount = 0;
+    for (let i = 0; i < tracks.length; i++)
+    {
+        const track = tracks[i];
+        const mapIndex = maps.findIndex(map => map.name === track.baseMap);
+        const map = maps[mapIndex];
+        mapLookup[i] = mapIndex;
+        (map as BaseMap).count++;
+        eventCount += track.count;
+    }
+
+    for (let i = 0; i < maps.length; i++)
+    {
+        const map = maps[i];
+        map.init(eventCount);
+    }
+
+    return { tracks, maps, mapLookup };
 }
 
 /**
  *
- * @param {object[]} trackPool
+ * @param {object[]} tracks
  * @param {boolean} defaultSettings
  * @returns
  */
 export async function generateConfigFileByTrackPool(
-    trackPool: any[],
-    defaultSettings: any
+    tracks: Track[],
+    maps: BaseMap[],
+    mapLookup: number[]
 ): Promise<IRawEvent>
 {
-    // Filter all tracks rated 0 or lower
-    trackPool = trackPool.filter((trackConfig) => trackConfig.count > 0);
-    if (trackPool.length < 1) throw new Error("trackPool is empty");
-
-    // Get base maps for each track configuration
-    trackPool.forEach(
-        (trackConfig) =>
-            (trackConfig.baseMap = substringSplit(trackConfig.trackId, "_", 1)[0])
-    );
-    // Sort by descending count
-    trackPool.sort((t1, t2) => t2.count - t1.count);
-
-    // Group maps by base map
-    const baseMapGroups = groupBy(trackPool, "baseMap");
-    const baseMapCount = Object.keys(baseMapGroups).length;
+    if (tracks.length < 1) throw new Error("trackPool is empty");
 
     // No base map should follow up twice
-    const duplicateMemoryLength = Math.ceil(baseMapCount * 0.5);
+    const duplicateMemoryLength = Math.ceil(maps.length * 0.5);
 
     // From the count generate a count at which a track appears in the rotation
     // From that count accumulate the total event length
     let eventCount = 0;
-    trackPool.forEach((trackConfig) =>
+    tracks.forEach((trackConfig) =>
     {
         eventCount += trackConfig.count;
     });
 
     // Store an event list which only contains the indexes of the trackPool
-    const eventList = new Array(eventCount);
+    const eventList = new Array<number>(eventCount);
 
     // Fill event list at random
     for (
-        let trackConfigurationIndex = 0;
-        trackConfigurationIndex < trackPool.length;
-        trackConfigurationIndex++
+        let trackIndex = 0;
+        trackIndex < tracks.length;
+        trackIndex++
     )
     {
-        const trackConfiguration = trackPool[trackConfigurationIndex];
-        for (let r = 0; r < trackConfiguration.count; r++)
+        const track = tracks[trackIndex];
+        for (let r = 0; r < track.count; r++)
         {
             let randomIndex = Math.round(Math.random() * (eventCount - 1));
 
@@ -198,7 +371,7 @@ export async function generateConfigFileByTrackPool(
                 searchGuard++;
             }
 
-            eventList[randomIndex] = trackConfigurationIndex;
+            eventList[randomIndex] = trackIndex;
         }
     }
 
@@ -211,27 +384,27 @@ export async function generateConfigFileByTrackPool(
     {
         const dupeMemory = new Array(duplicateMemoryLength);
 
-        let prevTrackLengthGroup = "none";
+        let prevLengthGroup = "none";
 
         dupesFound = false;
 
         for (let c = 0; c < eventCount; c++) 
         {
             const i = (c + passes) % eventCount;
-            const trackConfiguration = trackPool[eventList[i]];
+            const track = tracks[eventList[i]];
 
-            if (prevTrackLengthGroup === trackConfiguration.trackLengthGroup)
+            if (prevLengthGroup === track.trackLengthGroup)
             {
-                prevTrackLengthGroup = trackConfiguration.trackLengthGroup;
+                prevLengthGroup = track.trackLengthGroup;
                 swapIndices(eventList, i, i + (((i % 2) + 1) % eventCount));
                 continue;
             }
 
             // TODO: This needs to be adapted to the new shifting pass-index
             // If map is not in dupe add then go to next event in list
-            if (!dupeMemory.includes(trackConfiguration.baseMap))
+            if (!dupeMemory.includes(track.baseMap))
             {
-                dupeMemory[i % duplicateMemoryLength] = trackConfiguration.baseMap;
+                dupeMemory[i % duplicateMemoryLength] = track.baseMap;
                 continue;
             }
             // If map is in dupe memory then move it and restart the dupe test.
@@ -263,7 +436,6 @@ export async function generateConfigFileByTrackPool(
     let debugAnyEmpty = false;
     const debugDupeIndizes = [];
     const debugLengthExceeded = eventList[eventCount] >= 0;
-    let debugMaxTrackOccurence = 0;
 
     for (let i = 0; i < eventCount; i++)
     {
@@ -272,16 +444,10 @@ export async function generateConfigFileByTrackPool(
         // Test if Not a Number
         else if (!debugAnyNaN && Number.isNaN(eventList[i])) debugAnyNaN = true;
 
-        const trackConfiguration = trackPool[eventList[i]];
+        const trackConfiguration = tracks[eventList[i]];
 
         if (debugDupeMemory.includes(trackConfiguration.baseMap))
             debugDupeIndizes.push(i);
-
-        let count = trackConfiguration.count;
-
-        trackConfiguration.count = Number.isFinite(count) ? ++count : 1;
-
-        if (debugMaxTrackOccurence < count) debugMaxTrackOccurence = count;
 
         debugDupeMemory[i % debugDupeMemory.length] = trackConfiguration.baseMap;
     }
@@ -292,20 +458,20 @@ export async function generateConfigFileByTrackPool(
         debugAnyNaN,
         debugAnyEmpty,
         minSpaceBetween: debugDupeMemory.length,
-        trackPoolCount: trackPool.length,
+        trackPoolCount: tracks.length,
         eventCount,
-        debugMaxTrackOccurence,
-        /*debugDupeMemory,*/ spacingPasses: passes,
+        spacingPasses: passes,
         debugDupeIndizes,
-        eventList: eventList.map((trackPoolIndex) => trackPool[trackPoolIndex]),
+        eventList: eventList.map((trackPoolIndex) => tracks[trackPoolIndex]),
+        /*debugDupeMemory,*/ 
     };
 
-    return { debugOutput, trackPool, eventList };
+    return { debugOutput, eventList };
 }
 
 export async function writeCfg(
     defaultSettings: any,
-    trackPool: any[],
+    tracks: any[],
     eventList: any[]
 ): Promise<string>
 {
@@ -407,58 +573,10 @@ export async function writeCfg(
 
         for (let i = 0; i < eventList.length; i++)
         {
-            const trackConfigurationIndex = eventList[i];
-            const trackConfiguration = trackPool[trackConfigurationIndex];
+            const trackIndex = eventList[i];
+            const track = tracks[trackIndex];
 
-            await outCfgLines.push(
-                `# ${trackConfiguration.commentTitle} (Base Map: ${trackConfiguration.baseMap}, Track Length Group: ${trackConfiguration.trackLengthGroup})`
-            );
-            await outCfgLines.push(`el_add=${trackConfiguration.trackId}`);
-
-            if (!stringIsEmpty(trackConfiguration.laps))
-                await outCfgLines.push(`el_laps=${trackConfiguration.laps}`);
-            if (!stringIsEmpty(trackConfiguration.gameMode))
-                await outCfgLines.push(`el_gamemode=${trackConfiguration.gameMode}`);
-            if (!stringIsEmpty(trackConfiguration.teamCount))
-                await outCfgLines.push(`el_num_teams=${trackConfiguration.teamCount}`);
-            if (!stringIsEmpty(trackConfiguration.botCount))
-                await outCfgLines.push(`el_bots=${trackConfiguration.botCount}`);
-            if (!stringIsEmpty(trackConfiguration.car_reset_disabled))
-                await outCfgLines.push(
-                    `el_car_reset_disabled=${trackConfiguration.car_reset_disabled}`
-                );
-            if (!stringIsEmpty(trackConfiguration.car_reset_delay))
-                await outCfgLines.push(
-                    `el_car_reset_delay=${trackConfiguration.car_reset_delay}`
-                );
-            if (!stringIsEmpty(trackConfiguration.disableWrongWayLimiter))
-                await outCfgLines.push(
-                    `el_wrong_way_limiter_disabled=${trackConfiguration.disableWrongWayLimiter}`
-                );
-            if (!stringIsEmpty(trackConfiguration.classRestriction))
-                await outCfgLines.push(
-                    `el_car_class_restriction=${trackConfiguration.classRestriction}`
-                );
-            if (!stringIsEmpty(trackConfiguration.carRestriction))
-                await outCfgLines.push(
-                    `el_car_restriction=${trackConfiguration.carRestriction}`
-                );
-            if (!stringIsEmpty(trackConfiguration.carRestriction))
-                await outCfgLines.push(
-                    `el_special_vehicles_disabled=${trackConfiguration.carRestriction}`
-                );
-            if (!stringIsEmpty(trackConfiguration.weatherId))
-                await outCfgLines.push(`el_weather=${trackConfiguration.weatherId}`);
-            if (!stringIsEmpty(trackConfiguration.disableSpecialVehicles))
-                await outCfgLines.push(
-                    `el_special_vehicles_disabled=${trackConfiguration.disableSpecialVehicles}\n`
-                );
-            if (!stringIsEmpty(trackConfiguration.timeLimit))
-                await outCfgLines.push(`el_time_limit=${trackConfiguration.timeLimit}`);
-            if (!stringIsEmpty(trackConfiguration.eliminationInterval))
-                await outCfgLines.push(
-                    `el_elimination_interval=${trackConfiguration.eliminationInterval}`
-                );
+            outCfgLines.push(...track.toCFGLines());
 
             await outCfgLines.push("");
         }

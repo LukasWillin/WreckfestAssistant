@@ -24,8 +24,8 @@
         <i class="unicode-icon ms-4" v-show="hasInput">&#129170;</i>
         <button class="in-generate btn btn-primary ms-3" @click="generate" v-show="hasInput">Generate Event List</button>
         <i class="unicode-icon ms-4" v-show="hasOutput">&#129170;</i>
-        <button class="in-generate btn btn-primary ms-3" @click="copyOutput" v-show="hasOutput">Copy to Clipboard</button>
-        <button class="in-generate btn btn-primary ms-3" @click="saveOutput" v-show="hasOutput">Save as File</button>
+        <button class="in-generate btn btn-primary ms-3" @click="() => copyContent(cfgOutput)" v-show="hasOutput">Copy to Clipboard</button>
+        <button class="in-generate btn btn-primary ms-3" @click="() => download(cfgOutput, 'wreckfest-event-list.cfg', 'text/plain')" v-show="hasOutput">Save as File</button>
   </div>
 
   <div class="out-container mb-3" v-show="hasOutput">
@@ -41,7 +41,7 @@
 
 <script lang="ts">
 import { Options, Vue } from "vue-class-component";
-import { generateConfigFileByTrackPool, readCsv, writeCfg } from "@/api";
+import { generateConfigFileByTrackPool, prepareTrackPool, readCsv, writeCfg } from "@/api";
 import { stringIsEmpty } from "@/extensions";
 
 @Options({})
@@ -84,6 +84,7 @@ export default class HomeView extends Vue
         this.elOutCfg = this.$refs.outCfg as HTMLTextAreaElement;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public async fileDrop(ev: any): Promise<void>
     {
         // Prevent default behavior (Prevent file from being opened)
@@ -103,7 +104,7 @@ export default class HomeView extends Vue
             this.csvInput = await file.text();
             console.log(`file.name = ${file.name}`);
         }
-        else 
+        else
         {
             // Use DataTransfer interface to access the file(s)
             this.csvInput = await ([...ev.dataTransfer.files][0] as File).text();
@@ -112,6 +113,7 @@ export default class HomeView extends Vue
         this.guessDelimiter();
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public dragOverHandler(ev: any): boolean
     {
         // Prevent file from being opened.
@@ -120,22 +122,43 @@ export default class HomeView extends Vue
         return false;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
     public async generate(ev: any): Promise<void>
     {
-        const { records, defaultSettings } = await readCsv(this.csvInput, this.csvDelimiter);
-        const { debugOutput, trackPool, eventList } = await generateConfigFileByTrackPool(records, defaultSettings);
-        this.cfgOutput = await writeCfg(defaultSettings, trackPool, eventList);
+        const trackData = await readCsv(this.csvInput, this.csvDelimiter);
+        const { tracks, maps, mapLookup } = prepareTrackPool(trackData.tracks);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { debugOutput, eventList } = await generateConfigFileByTrackPool(tracks, maps, mapLookup);
+        this.cfgOutput = await writeCfg(trackData.defaultSettings, tracks, eventList);
         this.$forceUpdate();
     }
 
-    public saveOutput()
+    public download(data: string, filename: string, type: string)
     {
-        console.debug("")
+        var file = new Blob([data], {type: type});
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((window as any).navigator.msSaveOrOpenBlob) // IE10+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).navigator.msSaveOrOpenBlob(file, filename);
+        else
+        { // Others
+            var a = document.createElement("a"),
+                url = URL.createObjectURL(file);
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function()
+            {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);  
+            }, 0); 
+        }
     }
 
-    public copyOutput()
+    public copyContent(data: string)
     {
-        console.debug("")
+        navigator.clipboard.writeText(data);
     }
 }
 </script>
