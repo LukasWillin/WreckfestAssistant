@@ -416,28 +416,6 @@ export async function generateConfigFileByTrackPool(
         }
     }
 
-    maxPasses = Math.ceil(eventCount * 200);
-    dupesFound = true;
-    for (passes = 0; passes < maxPasses && dupesFound; passes++)
-    {
-        let prevLengthGroup = "none";
-        dupesFound = false;
-
-        for (let c = 0; c < eventCount; c++) 
-        {
-            const i = (c + passes) % eventCount;
-            const track = tracks[eventList[i]];
-
-            if (prevLengthGroup !== track.trackLengthGroup)
-                continue;
-            
-            dupesFound = true;
-            prevLengthGroup = track.trackLengthGroup;
-            swapIndices(eventList, i, i + (((i % 2) + 1) % eventCount));
-            break;
-        }
-    }
-
     function isBaseMapInRange(mapName: string, maps: BaseMap[], mapLookup: number[], eventList: number[], rangeStart: number, rangeEndExcl: number): boolean
     {
         for (let i = rangeStart; i < rangeEndExcl; i++)
@@ -450,7 +428,7 @@ export async function generateConfigFileByTrackPool(
         return false;
     }
 
-    maxPasses = Math.ceil(eventCount * 2000);
+    maxPasses = Math.ceil(eventCount * 1000);
     dupesFound = true;
     for (passes = 0; passes < maxPasses && dupesFound; passes++)
     {
@@ -460,6 +438,86 @@ export async function generateConfigFileByTrackPool(
             const baseMap = maps[mapLookup[eventList[i]]];
 
             if (!isBaseMapInRange(baseMap.name, maps, mapLookup, eventList, i - baseMap.minSpaceBetween, i))
+                continue;
+
+            dupesFound = true;
+            swapIndices(eventList, i, (i + 1) % eventCount);
+        }
+    }
+
+    maxPasses = Math.ceil(eventCount * 200);
+    dupesFound = true;
+    for (passes = 0; passes < maxPasses && dupesFound; passes++)
+    {
+        let prevLengthGroup = "none";
+        dupesFound = false;
+
+        for (let c = 0; c < eventCount; c++) 
+        {
+            const i = (c + passes) % eventCount;
+            const track = tracks[eventList[i]];
+
+            if (prevLengthGroup === track.trackLengthGroup)
+            {
+                dupesFound = true;
+                swapIndices(eventList, i % eventCount, (i + 1) % eventCount);
+                break;
+            }
+
+            prevLengthGroup = track.trackLengthGroup;
+        }
+    }
+
+    maxPasses = Math.ceil(eventCount * 100);
+    dupesFound = true;
+    for (passes = 0; passes < maxPasses && dupesFound; passes++)
+    {
+        for (let c = 0; c < eventCount; c++) 
+        {
+            const i = (c + passes) % eventCount;
+            const baseMap = maps[mapLookup[eventList[i]]];
+
+            if (!isBaseMapInRange(baseMap.name, maps, mapLookup, eventList, i - (baseMap.minSpaceBetween), i))
+                continue;
+
+            dupesFound = true;
+            swapIndices(eventList, i, (i + 1) % eventCount);
+        }
+    }
+
+    maxPasses = Math.ceil(eventCount * 200);
+    dupesFound = true;
+    for (passes = 0; passes < maxPasses && dupesFound; passes++)
+    {
+        let prevLengthGroup = "none";
+        dupesFound = false;
+
+        for (let c = 0; c < eventCount; c++) 
+        {
+            const i = (c + passes) % eventCount;
+            const track = tracks[eventList[i]];
+
+            if (prevLengthGroup === track.trackLengthGroup)
+            {
+                dupesFound = true;
+                swapIndices(eventList, i % eventCount, (i + 1) % eventCount);
+                break;
+            }
+
+            prevLengthGroup = track.trackLengthGroup;
+        }
+    }
+
+    maxPasses = Math.ceil(eventCount * 100);
+    dupesFound = true;
+    for (passes = 0; passes < maxPasses && dupesFound; passes++)
+    {
+        for (let c = 0; c < eventCount; c++) 
+        {
+            const i = (c + passes) % eventCount;
+            const baseMap = maps[mapLookup[eventList[i]]];
+
+            if (!isBaseMapInRange(baseMap.name, maps, mapLookup, eventList, i - (baseMap.minSpaceBetween), i))
                 continue;
 
             dupesFound = true;
