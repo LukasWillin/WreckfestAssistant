@@ -1,0 +1,48 @@
+:root {
+    --primary-accent: #fdd50d;
+    --primary-accent-dark: #ceb007;
+    --primary-accent-dark-active: #e0bf05;
+    --primary-accent-disabled: #fceea8;
+    --bs-primary: var(--primary-accent);
+    --primary-accent-alpha: #fdd50dd0;
+    --background-color: #111;
+    --background-color-alpha: #111a;
+    --primary-color: #ddd;
+    --bs-body-bg: var(--background-color);
+    --bs-body-color: var(--primary-color);
+    --bs-link-hover-color: rgb(255, 240, 141);
+    --bs-btn-bg: var(--primary-accent);
+    --bs-btn-border-color: var(--primary-accent);
+}
+
+.btn:focus-visible
+{
+    background-color: var(--bs-btn-active-bg);
+    border-color: var(--bs-btn-active-bg);
+}
+
+.btn.btn-primary:hover
+{
+    background-color: var(--primary-accent-dark-active);
+    border-color: var(--primary-accent-dark-active);
+}
+
+.btn.btn-primary
+{
+    --bs-btn-color: #fff;
+    --bs-btn-bg: var(--primary-accent-dark); //#0d6efd;
+    --bs-btn-border-color: var(--primary-accent-dark); //#0d6efd;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: var(--primary-accent-dark-active); //#0b5ed7;
+    --bs-btn-hover-border-color: var(--primary-accent-dark-active); //#0a58ca;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: var(--primary-accent-dark); //#0a58ca;
+    --bs-btn-active-border-color: var(--primary-accent-dark); //#0a53be;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: var(--primary-accent-disabled); //#0d6efd;
+    --bs-btn-disabled-border-color: var(--primary-accent-disabled); //#0d6efd;
+    --bs-btn-focus-box-shadow: 0 0 0 0.25rem var(--primary-accent);
+}
+
+

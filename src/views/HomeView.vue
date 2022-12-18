@@ -1,42 +1,48 @@
 <template>
-  <div class="bg bg-1"></div>
+    <div class="bg bg-1"></div>
 
-  <div class="in-container mb-3">
-    <label for="in-csv" class="form-label">csv input</label>
-    <textarea ref="inCsv"
-        id="in-csv"
-        class="form-control"
-        @drop="fileDrop"
-        @dragover="dragOverHandler"
-        :value="csvInput"
-        @change="inputChangeHandler"
-        @keyup="inputChangeHandler"
-        placeholder="Drop your .csv-files here or copy the csv content"></textarea><!--@change="() => $forceUpdate()"-->
-  </div>
+    <div class="d-inline-flex m-1">
+        <label class="form-label m-0 mt-1 mb-1">Where to start :</label>
+        <a class="dl-template btn btn-primary m-0 ms-3" target="_blank" rel="noopener noreferrer" href="https://docs.google.com/spreadsheets/d/1CtoXgdeCNbCf33zM1w3Lfb_OLKWpqXTGPkHKSienXmQ/edit?usp=sharing">Copy this Google Sheet</a>
+        <a class="dl-template btn btn-primary m-0 ms-3" href="template.csv">Or download a CSV template</a>
+    </div>
 
-  <div class="ctrl-container mb-3 d-flex justify-content-start">
-        <label for="csv-delimiter" class="form-label" v-show="hasInput">Chose Delimiter:</label>
-        <select id="csv-delimiter" class="form-control ms-1" v-model="csvDelimiter" v-show="hasInput">
-            <option selected="true" value=";">Semicolon ;</option>
-            <option value="," >Comma ,</option>
-            <option value="&#9;">Tab &#11134;</option>
-        </select>
-        <i class="unicode-icon ms-4" v-show="hasInput">&#129170;</i>
-        <button class="in-generate btn btn-primary ms-3" @click="generate" v-show="hasInput">Generate Event List</button>
-        <i class="unicode-icon ms-4" v-show="hasOutput">&#129170;</i>
-        <button class="in-generate btn btn-primary ms-3" @click="() => copyContent(cfgOutput)" v-show="hasOutput">Copy to Clipboard</button>
-        <button class="in-generate btn btn-primary ms-3" @click="() => download(cfgOutput, 'wreckfest-event-list.cfg', 'text/plain')" v-show="hasOutput">Save as File</button>
-  </div>
+    <div class="in-container mb-3">
+        <label for="in-csv" class="form-label">csv input</label>
+        <textarea ref="inCsv"
+            id="in-csv"
+            class="form-control"
+            @drop="fileDrop"
+            @dragover="dragOverHandler"
+            :value="csvInput"
+            @change="inputChangeHandler"
+            @keyup="inputChangeHandler"
+            placeholder="Drop your .csv-files here or copy the csv content"></textarea><!--@change="() => $forceUpdate()"-->
+    </div>
 
-  <div class="out-container mb-3" v-show="hasOutput">
-    <label for="out-cfg" class="form-label">Event List Output</label>
-    <textarea ref="outCfg"
-        id="out-cfg"
-        class="form-control"
-        disabled="true"
-        v-model="cfgOutput"
-        placeholder="Here will be your event list cfg content"></textarea>
-  </div>
+    <div class="ctrl-container mb-3 d-flex justify-content-start">
+            <label for="csv-delimiter" class="form-label" v-show="hasInput">Chose Delimiter:</label>
+            <select id="csv-delimiter" class="form-control ms-1" v-model="csvDelimiter" v-show="hasInput">
+                <option selected="true" value=";">Semicolon ;</option>
+                <option value="," >Comma ,</option>
+                <option value="&#9;">Tab &#11134;</option>
+            </select>
+            <i class="unicode-icon ms-4" v-show="hasInput">&#129170;</i>
+            <button class="in-generate btn btn-primary ms-3" @click="generate" v-show="hasInput">Generate Event List</button>
+            <i class="unicode-icon ms-4" v-show="hasOutput">&#129170;</i>
+            <button class="in-generate btn btn-primary ms-3" @click="() => copyContent(cfgOutput)" v-show="hasOutput">Copy to Clipboard</button>
+            <button class="in-generate btn btn-primary ms-3" @click="() => download(cfgOutput, 'wreckfest-event-list.cfg', 'text/plain')" v-show="hasOutput">Save as File</button>
+    </div>
+
+    <div class="out-container mb-3" v-show="hasOutput">
+        <label for="out-cfg" class="form-label">Event List Output</label>
+        <textarea ref="outCfg"
+            id="out-cfg"
+            class="form-control"
+            disabled="true"
+            v-model="cfgOutput"
+            placeholder="Here will be your event list cfg content"></textarea>
+    </div>
 </template>
 
 <script lang="ts">
