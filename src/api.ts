@@ -118,6 +118,7 @@ export class Track
         record.laps = track.laps = isNumeric(record.laps)
             ? Math.floor(Number.parseFloat(record.laps as unknown as string))
             : undefined;
+        
         if (track.trackLength > 0)
         {
             // These arbitrarily set numbers account to roughly the same number of tracks in each group as of 2022.10.12
@@ -319,34 +320,13 @@ export function prepareTrackPool(tracks: Track[]): { tracks: Track[], maps: Base
     return { tracks, maps, mapLookup };
 }
 
-/**
- *
- * @param {object[]} tracks
- * @param {boolean} defaultSettings
- * @returns
- */
-export async function generateConfigFileByTrackPool(
-    tracks: Track[],
-    maps: BaseMap[],
-    mapLookup: number[]
-): Promise<IRawEvent>
+function getTrackCount(tracks: Track[]): number
 {
-    if (tracks.length < 1) throw new Error("trackPool is empty");
+    return tracks.map((trackConfig) => trackConfig.count).reduce((prev, curr) => prev + curr);
+}
 
-    // No base map should follow up twice
-    const duplicateMemoryLength = Math.ceil(maps.length * 0.5);
-
-    // From the count generate a count at which a track appears in the rotation
-    // From that count accumulate the total event length
-    let eventCount = 0;
-    tracks.forEach((trackConfig) =>
-    {
-        eventCount += trackConfig.count;
-    });
-
-    // Store an event list which only contains the indexes of the trackPool
-    const eventList = new Array<number>(eventCount);
-
+function distributeAtRandom(tracks: Track[], eventList: Array<number>, eventCount: number)
+{
     // Fill event list at random
     for (
         let trackIndex = 0;
@@ -375,11 +355,15 @@ export async function generateConfigFileByTrackPool(
             eventList[randomIndex] = trackIndex;
         }
     }
+}
 
-    // Space out duplicates
+function distributeByBaseMap(maps: BaseMap[], tracks: Track[], eventList: Array<number>, eventCount: number, maxPasses: number)
+{
+    // No base map should follow up twice
+    const duplicateMemoryLength = Math.ceil(maps.length * 0.5);
+
     let dupesFound = true;
     let passes = 0;
-    let maxPasses = Math.ceil(eventCount * 100);
 
     for (passes = 0; passes < maxPasses && dupesFound; passes++)
     {
@@ -398,8 +382,8 @@ export async function generateConfigFileByTrackPool(
                 dupeMemory[i % duplicateMemoryLength] = track.baseMap;
                 continue;
             }
-            // If map is in dupe memory then move it and restart the dupe test.
 
+            // If map is in dupe memory then move it and restart the dupe test.
             dupesFound = true;
 
             // Get positions to move
@@ -415,21 +399,24 @@ export async function generateConfigFileByTrackPool(
             break;
         }
     }
+}
 
-    function isBaseMapInRange(mapName: string, maps: BaseMap[], mapLookup: number[], eventList: number[], rangeStart: number, rangeEndExcl: number): boolean
+function isBaseMapInRange(mapName: string, maps: BaseMap[], mapLookup: number[], eventList: number[], rangeStart: number, rangeEndExcl: number): boolean
+{
+    for (let i = rangeStart; i < rangeEndExcl; i++)
     {
-        for (let i = rangeStart; i < rangeEndExcl; i++)
-        {
-            const trackIndex = eventList[(i + eventList.length) % eventList.length];
-            const map = maps[mapLookup[trackIndex]];
-            if (map.name === mapName)
-                return true;
-        }
-        return false;
+        const trackIndex = eventList[(i + eventList.length) % eventList.length];
+        const map = maps[mapLookup[trackIndex]];
+        if (map.name === mapName)
+            return true;
     }
+    return false;
+}
 
-    maxPasses = Math.ceil(eventCount * 1000);
-    dupesFound = true;
+function distributeByBaseMap2(maps: BaseMap[], mapLookup: number[], tracks: Track[], eventList: Array<number>, eventCount: number, maxPasses: number)
+{
+    let dupesFound = true;
+    let passes = 0;
     for (passes = 0; passes < maxPasses && dupesFound; passes++)
     {
         for (let c = 0; c < eventCount; c++) 
@@ -444,10 +431,13 @@ export async function generateConfigFileByTrackPool(
             swapIndices(eventList, i, (i + 1) % eventCount);
         }
     }
+}
 
-    maxPasses = Math.ceil(eventCount * 200);
-    dupesFound = true;
-    for (passes = 0; passes < maxPasses && dupesFound; passes++)
+function distributeByTrackLengthGroup(maps: BaseMap[], mapLookup: number[], tracks: Track[], eventList: Array<number>, eventCount: number, maxPasses: number)
+{
+    let dupesFound = true;
+    
+    for (let passes = 0; passes < maxPasses && dupesFound; passes++)
     {
         let prevLengthGroup = "none";
         dupesFound = false;
@@ -467,63 +457,69 @@ export async function generateConfigFileByTrackPool(
             prevLengthGroup = track.trackLengthGroup;
         }
     }
+}
 
-    maxPasses = Math.ceil(eventCount * 100);
-    dupesFound = true;
-    for (passes = 0; passes < maxPasses && dupesFound; passes++)
+function distributeByTrackLength(maps: BaseMap[], mapLookup: number[], tracks: Track[], eventList: Array<number>, eventCount: number, maxPasses: number)
+{
+    let dupesFound = true;
+    
+    for (let passes = 0; passes < maxPasses && dupesFound; passes++)
     {
-        for (let c = 0; c < eventCount; c++) 
-        {
-            const i = (c + passes) % eventCount;
-            const baseMap = maps[mapLookup[eventList[i]]];
-
-            if (!isBaseMapInRange(baseMap.name, maps, mapLookup, eventList, i - (baseMap.minSpaceBetween), i))
-                continue;
-
-            dupesFound = true;
-            swapIndices(eventList, i, (i + 1) % eventCount);
-        }
-    }
-
-    maxPasses = Math.ceil(eventCount * 200);
-    dupesFound = true;
-    for (passes = 0; passes < maxPasses && dupesFound; passes++)
-    {
-        let prevLengthGroup = "none";
+        let prevTrack = null;
         dupesFound = false;
 
         for (let c = 0; c < eventCount; c++) 
         {
             const i = (c + passes) % eventCount;
             const track = tracks[eventList[i]];
+            const trackLengthDiff = Math.abs(prevTrack?.trackLength ?? 0 - track.trackLength);
 
-            if (prevLengthGroup === track.trackLengthGroup)
+            // TODO: Get value by analyzing the track list
+            if (prevTrack && trackLengthDiff < .65)
             {
                 dupesFound = true;
                 swapIndices(eventList, i % eventCount, (i + 1) % eventCount);
                 break;
             }
 
-            prevLengthGroup = track.trackLengthGroup;
+            prevTrack = track;
         }
     }
+}
 
-    maxPasses = Math.ceil(eventCount * 100);
-    dupesFound = true;
-    for (passes = 0; passes < maxPasses && dupesFound; passes++)
+/**
+ *
+ * @param {object[]} tracks
+ * @param {boolean} defaultSettings
+ * @returns
+ */
+export async function generateConfigFileByTrackPool(
+    tracks: Track[],
+    maps: BaseMap[],
+    mapLookup: number[]
+): Promise<IRawEvent>
+{
+    if (tracks.length < 1) throw new Error("trackPool is empty");
+
+    // From the count generate a count at which a track appears in the rotation
+    // From that count accumulate the total event length
+    const eventCount = getTrackCount(tracks);
+    // const maxPasses = Math.ceil(eventCount * 150);
+
+    // Store an event list which only contains the indexes of the trackPool
+    const eventList = new Array<number>(eventCount);
+
+    // Create an initial random distribution
+    distributeAtRandom(tracks, eventList, eventCount);
+
+    for (let passes = 0; passes < 3; passes++)
     {
-        for (let c = 0; c < eventCount; c++) 
-        {
-            const i = (c + passes) % eventCount;
-            const baseMap = maps[mapLookup[eventList[i]]];
-
-            if (!isBaseMapInRange(baseMap.name, maps, mapLookup, eventList, i - (baseMap.minSpaceBetween), i))
-                continue;
-
-            dupesFound = true;
-            swapIndices(eventList, i, (i + 1) % eventCount);
-        }
+        distributeByBaseMap2(maps, mapLookup, tracks, eventList, eventCount, eventCount * 100);
+        distributeByTrackLength(maps, mapLookup, tracks, eventList, eventCount, eventCount * 200);
+        // distributeByTrackLengthGroup(maps, mapLookup, tracks, eventList, eventCount, eventCount * 100);
     }
+
+    distributeByBaseMap2(maps, mapLookup, tracks, eventList, eventCount, eventCount * 100);
 
     // Output debug information as json into a different file
     // let debugOutput = null;
