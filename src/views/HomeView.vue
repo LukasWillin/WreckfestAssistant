@@ -88,6 +88,7 @@ export default class HomeView extends Vue
     {
         this.elInCsv = this.$refs.inCsv as HTMLTextAreaElement
         this.elOutCfg = this.$refs.outCfg as HTMLTextAreaElement;
+        this.$router.push("/");
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
