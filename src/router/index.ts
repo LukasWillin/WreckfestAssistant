@@ -3,12 +3,14 @@ import HomeView from "../views/HomeView.vue";
 
 const routes: Array<RouteRecordRaw> = [
     {
-        path: "/",
+        path: "/WreckfestAssistant/",
+        alias: "/",
         name: "home",
         component: HomeView,
     },
     {
-        path: "/about",
+        path: "/WreckfestAssistant/about",
+        alias: "/about",
         name: "about",
         // route level code-splitting
         // this generates a separate chunk (about.[hash].js) for this route
