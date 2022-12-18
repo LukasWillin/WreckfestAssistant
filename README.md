@@ -1,5 +1,9 @@
 # wreckfest-assistant
 
+## Page
+You can find the running tool here
+https://lukaswillin.github.io/WreckfestAssistant/
+
 ## Project setup
 ```
 npm install
